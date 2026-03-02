@@ -827,11 +827,12 @@ export default function Home() {
 
       {/* --- 公测公告模态框 --- */}
             {/* --- 公测公告模态框 (已优化) --- */}
+            {/* --- 公测公告模态框 (已优化) --- */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up flex flex-col max-h-[90vh]">
             
-            {/* 头部：固定不变 */}
+            {/* 头部 */}
             <div className="p-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 relative shrink-0">
               <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
               <div className="p-5 relative z-10 flex justify-between items-start">
@@ -844,7 +845,6 @@ export default function Home() {
                     <p className="text-indigo-100 text-xs mt-0.5">Public Beta Program</p>
                   </div>
                 </div>
-                {/* 右上角关闭叉号 - 始终可见 */}
                 <button 
                   onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
                   className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors shrink-0"
@@ -855,9 +855,8 @@ export default function Home() {
               </div>
             </div>
             
-            {/* 内容区：可滚动，防止遮挡底部按钮 */}
+            {/* 内容区 */}
             <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-              {/* 核心提示卡片 */}
               <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-4 text-center">
                 <Gift className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-2" />
                 <h4 className="font-bold text-indigo-900 dark:text-indigo-200 text-base">所有高级功能免费开放</h4>
@@ -866,7 +865,6 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* 精简权益列表 */}
               <div className="space-y-2">
                 <h5 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">公测权益</h5>
                 <div className="grid grid-cols-2 gap-2">
@@ -884,7 +882,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 兑换码区域 (折叠感) */}
               <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
                 <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2 text-center">拥有内测兑换码？</label>
                 <div className="flex gap-2">
@@ -899,7 +896,7 @@ export default function Home() {
               </div>
             </div>
             
-            {/* 底部操作区：固定不变，始终可见 */}
+            {/* 底部 */}
             <div className="p-4 bg-gray-50 dark:bg-gray-800/50 text-center border-t border-gray-200 dark:border-gray-700 shrink-0">
               <button 
                 onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
@@ -912,6 +909,9 @@ export default function Home() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
                 </div>
               </div>
 
