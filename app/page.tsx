@@ -320,7 +320,7 @@ export default function Home() {
         };
 
         // 3. 发起请求 -> 指向本地 API /api/chat
-        const response = await fetch('/api/chat', {
+        const response = await fetch('/api/judge', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -546,7 +546,7 @@ export default function Home() {
     if (!apiKey) { clearInterval(timerInterval); setCompareFusionResult("⚠️ 融合功能需要配置 API Key。"); setIsComparingFusing(false); return; }
 
     try {
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
+      const response = await fetch('https://api.deepseek.com/judge/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: fusePrompt }], stream: false })
       });
