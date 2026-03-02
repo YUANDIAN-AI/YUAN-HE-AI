@@ -6,8 +6,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Trophy, Sparkles, CheckCircle, Copy, Check, Scale, BrainCircuit, AlertCircle, RefreshCw, Star, Clock, Loader2, X, Trash2, MessageSquarePlus, History, Square, Gift, Rocket } from 'lucide-react';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { 
+  Trophy, Sparkles, CheckCircle, Copy, Check, Scale, BrainCircuit, AlertCircle, 
+  RefreshCw, Clock, Loader2, X, Trash2, MessageSquarePlus, Menu, Zap, Rocket, 
+  Layers, ChevronRight, Gift, BarChart3 
+} from 'lucide-react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 // --- 类型定义 ---
 type Message = { role: 'user' | 'assistant' | 'system'; content: string; id: string }; 
@@ -21,13 +25,11 @@ type ModelData = {
   abortController?: AbortController | null; 
 };
 type SelectedItem = { modelName: string; messageId: string; content: string; colorClass: string; };
-type Session = { id: string; title: string; timestamp: number; models: Record<string, ModelData>; judgeResult: string | null; };
-type Dimension = { key: string; label: string; max: 5 };
+type Session = { id: string; title: string; timestamp: number; models: Record<string, Omit<ModelData, 'abortController'>>; judgeResult: string | null; };
+type Dimension = { key: string; label: string; max: number };
 type ResponseLength = 'brief' | 'concise' | 'standard' | 'detailed';
 type ModelScore = { name: string; scores: Record<string, number>; total: number; isBest?: boolean; shortComment?: string; };
-type UserPlan = 'free' | 'pro';
-type UserData = { isLoggedIn: boolean; username?: string; plan: UserPlan; planExpiry?: number; credits: number; };
-type AppSettings = { dimensions: Dimension[]; apiKeys: Record<string, string>; };
+type UserData = { isLoggedIn: boolean; username?: string; plan: 'pro'; credits: number; };
 
 const DEFAULT_DIMENSIONS: Dimension[] = [
   { key: 'accuracy', label: '准确性', max: 5 },
@@ -38,36 +40,39 @@ const DEFAULT_DIMENSIONS: Dimension[] = [
 
 const PROMPT_TEMPLATES = [
   { label: '💻 写代码', text: '请作为一名资深工程师，用最佳实践编写代码。要求：代码健壮、有注释、考虑边界情况。' },
-  { label: '📝 润色文章', text: '请作为一名专业编辑，润色以下文本。要求：语言流畅、用词精准、逻辑清晰，保持原意但提升可读性。' },
-  { label: '📊 数据分析', text: '请作为一名数据分析师，帮我分析以下数据/现象。要求：给出关键洞察、潜在原因及可执行建议。' },
-  { label: '🎭 角色扮演', text: '请作为一名行业专家，用专业且易懂的语言解答我的问题。可以适当使用比喻。' },
+  { label: '📝 润色文章', text: '请作为一名专业编辑，润色以下文本。要求：语言流畅、用词精准、逻辑清晰。' },
+  { label: '📊 数据分析', text: '请作为一名数据分析师，帮我分析以下数据。要求：给出关键洞察及可执行建议。' },
+  { label: '🎭 角色扮演', text: '请作为一名行业专家，用专业且易懂的语言解答我的问题。' },
 ];
 
+// --- 组件：代码块 ---
 const CodeBlock = ({ language, children }: { language: string | undefined; children: string }) => {
   const [copied, setCopied] = useState(false);
-  const handleCopy = () => { navigator.clipboard.writeText(children); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  const handleCopy = () => { 
+    navigator.clipboard.writeText(children); 
+    setCopied(true); 
+    setTimeout(() => setCopied(false), 1500); 
+  };
   return (
-    <div className="my-4 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-md group">
-      <div className="flex justify-between items-center px-4 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <span className="text-xs font-mono text-gray-500 dark:text-gray-400 uppercase tracking-wider">{language || '代码'}</span>
-        <button onClick={handleCopy} className="text-xs text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1 font-medium">
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />} {copied ? '已复制' : '复制'}
+    <div className="relative group rounded-lg overflow-hidden my-4 border border-gray-700 bg-[#1e1e1e]">
+      <div className="flex justify-between items-center px-4 py-2 bg-[#2d2d2d] text-xs text-gray-400">
+        <span>{language || 'Code'}</span>
+        <button onClick={handleCopy} className="flex items-center gap-1 hover:text-white transition-colors">
+          {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? '已复制' : '复制'}
         </button>
       </div>
-      <SyntaxHighlighter language={language || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, borderRadius: 0, fontSize: '0.85rem', lineHeight: '1.6' }} wrapLines={true} showLineNumbers={true}>{children}</SyntaxHighlighter>
+      <SyntaxHighlighter language={language || 'text'} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1rem', background: 'transparent', fontSize: '0.85rem' }}>
+        {children}
+      </SyntaxHighlighter>
     </div>
   );
 };
 
-const EmojiIcon = ({ emoji }: { emoji: string }) => (
-  <span className="text-base leading-none">{emoji}</span>
-);
-
 export default function Home() {
+  // --- 状态管理 ---
   const [input, setInput] = useState('');
-  // 默认选择 'concise' (简洁回复)
   const [responseLength, setResponseLength] = useState<ResponseLength>('concise');
-  const [activeTab, setActiveTab] = useState<string>('通义千问');
+  const [activeTab, setActiveTab] = useState('通义千问');
   
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [isCompareViewOpen, setIsCompareViewOpen] = useState(false);
@@ -89,104 +94,72 @@ export default function Home() {
     '豆包': { name: '豆包', messages: [], isLoading: false, colorClass: 'bg-emerald-500', gradientClass: 'from-emerald-500 to-teal-500', abortController: null },
   });
 
-  // 公测模式：默认给用户 Pro 体验
-  const [user, setUser] = useState<UserData>({ isLoggedIn: true, username: '公测体验官', plan: 'pro', planExpiry: Date.now() + 7 * 24 * 60 * 60 * 1000, credits: 9999 });
+  const [user] = useState<UserData>({ isLoggedIn: true, username: 'Guest', plan: 'pro', credits: 9999 });
+  const [showBetaModal, setShowBetaModal] = useState(false);
   
-  // 注意：这里 apiKeys 默认为空，因为现在由后端环境变量提供，前端不再需要用户输入
-  const [settings] = useState<AppSettings>({ dimensions: DEFAULT_DIMENSIONS, apiKeys: { '通义千问': '', 'DeepSeek': '', '豆包': '' } });
-  
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [hasSeenBetaModal, setHasSeenBetaModal] = useState(false);
-  
-  const [redeemCode, setRedeemCode] = useState('');
-  const [redeemMsg, setRedeemMsg] = useState<{type: 'success'|'error', text: string} | null>(null);
-
-  const lastQuestionRef = useRef<string>('');
+  const lastQuestionRef = useRef('');
   const scrollRefs = useRef<Record<string, HTMLDivElement | null>>({});
-  const compareViewRef = useRef<HTMLDivElement>(null);
 
-  // 首次进入自动显示公告
+  // --- 初始化 ---
   useEffect(() => {
-    const seen = localStorage.getItem('beta_modal_seen');
-    if (!seen) {
-      setTimeout(() => {
-        setShowUpgradeModal(true);
-        setHasSeenBetaModal(true);
-        localStorage.setItem('beta_modal_seen', 'true');
-      }, 500);
-    } else {
-      setHasSeenBetaModal(true);
-    }
-
-    const savedUser = localStorage.getItem('ai_user_data');
-    if (savedUser) setUser(JSON.parse(savedUser));
-    const saved = localStorage.getItem('ai_compare_sessions');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const cleanedModels: Record<string, ModelData> = {};
-        Object.keys(parsed[0].models).forEach(key => {
-          cleanedModels[key] = { ...parsed[0].models[key], abortController: null };
-        });
-        parsed[0].models = cleanedModels;
-        setSessions(parsed);
-        if (parsed.length > 0) loadSession(parsed[0].id);
-      } catch (e) { console.error(e); }
+    if (typeof window !== 'undefined') {
+      const seen = localStorage.getItem('beta_modal_seen_v2');
+      if (!seen) {
+        const timer = setTimeout(() => setShowBetaModal(true), 300);
+        return () => clearTimeout(timer);
+      }
+      
+      const saved = localStorage.getItem('ai_compare_sessions');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as Session[];
+          if (parsed.length > 0) {
+            const cleanSessions = parsed.map(s => ({
+              ...s,
+              models: Object.fromEntries(
+                Object.entries(s.models).map(([k, v]) => [k, { ...v, abortController: null }])
+              )
+            })) as Session[];
+            setSessions(cleanSessions);
+            loadSession(cleanSessions[0].id);
+          }
+        } catch (e) { console.error(e); }
+      }
     }
   }, []);
 
-  const saveUserState = (newUser: UserData) => { setUser(newUser); localStorage.setItem('ai_user_data', JSON.stringify(newUser)); };
-
-  const handleRedeem = () => {
-    const code = redeemCode.trim().toUpperCase();
-    if (!code) return;
-    if (code.startsWith('PRO-') || code.startsWith('CRT-')) {
-      setRedeemMsg({ type: 'success', text: '🎉 兑换成功！(公测期间所有功能已免费开放)' });
-      setTimeout(() => { setShowUpgradeModal(false); setRedeemMsg(null); setRedeemCode(''); }, 2000);
-    } else {
-      setRedeemMsg({ type: 'error', text: '❌ 无效的兑换码' });
-    }
-  };
-
+  // --- 核心逻辑 ---
   const saveCurrentSession = useCallback(() => {
     const hasContent = Object.values(models).some(m => m.messages.length > 0);
     if (!hasContent) return;
-    const modelsToSave: Record<string, ModelData> = {};
-    Object.keys(models).forEach(k => {
-      const { abortController, ...rest } = models[k];
-      modelsToSave[k] = rest;
-    });
-
-    const title = models['通义千问'].messages.find(m => m.role === 'user')?.content.slice(0, 20) + '...' || '新会话';
+    const modelsToSave = Object.fromEntries(
+      Object.entries(models).map(([k, v]) => {
+        const { abortController, ...rest } = v;
+        return [k, rest];
+      })
+    ) as Record<string, Omit<ModelData, 'abortController'>>;
+    const firstUserMsg = models['通义千问'].messages.find(m => m.role === 'user')?.content || models['DeepSeek'].messages.find(m => m.role === 'user')?.content || '新会话';
+    const title = firstUserMsg.slice(0, 20) + (firstUserMsg.length > 20 ? '...' : '');
     const sessionId = currentSessionId || Date.now().toString();
     const newSession: Session = { id: sessionId, title, timestamp: Date.now(), models: modelsToSave, judgeResult: compareJudgeResult };
     setSessions(prev => {
-      let filtered = prev.filter(s => s.id !== sessionId);
-      const updated = [newSession, ...filtered];
-      localStorage.setItem('ai_compare_sessions', JSON.stringify(updated));
+      const updated = [newSession, ...prev.filter(s => s.id !== sessionId)];
+      if (typeof window !== 'undefined') localStorage.setItem('ai_compare_sessions', JSON.stringify(updated));
       return updated;
     });
     setCurrentSessionId(sessionId);
   }, [models, compareJudgeResult, currentSessionId]);
 
-  useEffect(() => { const timer = setTimeout(() => saveCurrentSession(), 1000); return () => clearTimeout(timer); }, [models, compareJudgeResult, saveCurrentSession]);
+  useEffect(() => { const t = setTimeout(() => saveCurrentSession(), 1500); return () => clearTimeout(t); }, [models, compareJudgeResult, saveCurrentSession]);
 
   const loadSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
-    if (session) {
-      const restoredModels: Record<string, ModelData> = {};
-      Object.keys(session.models).forEach(k => {
-        restoredModels[k] = { ...session.models[k], abortController: null, isLoading: false };
-      });
-      setModels(restoredModels);
-      setCompareScoreData([]); 
-      setCompareJudgeResult(session.judgeResult); 
-      setCompareFusionResult(null);
-      setCurrentSessionId(session.id);
-      setSelectedItems([]); 
-      setIsCompareViewOpen(false);
-      if (typeof window !== 'undefined' && window.innerWidth < 768) setIsSidebarOpen(false);
-    }
+    if (!session) return;
+    const restored = Object.fromEntries(Object.entries(session.models).map(([k, v]) => [k, { ...v, abortController: null, isLoading: false }])) as Record<string, ModelData>;
+    setModels(restored);
+    setCompareScoreData([]); setCompareJudgeResult(session.judgeResult); setCompareFusionResult(null);
+    setCurrentSessionId(id); setSelectedItems([]); setIsCompareViewOpen(false);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
   const createNewSession = () => {
@@ -196,15 +169,9 @@ export default function Home() {
       'DeepSeek': { name: 'DeepSeek', messages: [], isLoading: false, colorClass: 'bg-blue-500', gradientClass: 'from-blue-500 to-cyan-500', abortController: null },
       '豆包': { name: '豆包', messages: [], isLoading: false, colorClass: 'bg-emerald-500', gradientClass: 'from-emerald-500 to-teal-500', abortController: null },
     });
-    setCompareScoreData([]);
-    setCompareJudgeResult(null);
-    setCompareFusionResult(null);
-    setSelectedItems([]);
-    setIsCompareViewOpen(false);
-    setIsComparingJudging(false);
-    setIsComparingFusing(false);
-    setCurrentSessionId(null); 
-    setInput('');
+    setCompareScoreData([]); setCompareJudgeResult(null); setCompareFusionResult(null);
+    setSelectedItems([]); setIsCompareViewOpen(false); setIsComparingJudging(false); setIsComparingFusing(false);
+    setCurrentSessionId(null); setInput('');
     if (typeof window !== 'undefined' && window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
@@ -213,85 +180,56 @@ export default function Home() {
     if(!confirm('确定删除？')) return;
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
-    localStorage.setItem('ai_compare_sessions', JSON.stringify(updated));
-    if (currentSessionId === id) { if (updated.length > 0) loadSession(updated[0].id); else createNewSession(); }
+    if (typeof window !== 'undefined') localStorage.setItem('ai_compare_sessions', JSON.stringify(updated));
+    if (currentSessionId === id) updated.length > 0 ? loadSession(updated[0].id) : createNewSession();
   };
 
   const stopGeneration = (modelName: string) => {
-    const model = models[modelName];
-    if (model.abortController) {
-      model.abortController.abort();
-      setModels(prev => ({
-        ...prev,
-        [modelName]: { ...prev[modelName], isLoading: false, abortController: null, error: '用户已停止生成' }
-      }));
+    const m = models[modelName];
+    if (m.abortController) {
+      m.abortController.abort();
+      setModels(prev => ({ ...prev, [modelName]: { ...prev[modelName], isLoading: false, abortController: null, error: '已停止' } }));
     }
   };
 
   const stopAllGenerations = () => {
-    let hasStopped = false;
-    Object.keys(models).forEach(key => {
-      if (models[key].abortController) {
-        models[key].abortController!.abort();
-        hasStopped = true;
-      }
+    Object.values(models).forEach(m => m.abortController?.abort());
+    setModels(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => { if (next[k].isLoading) next[k] = { ...next[k], isLoading: false, abortController: null, error: '已停止' }; });
+      return next;
     });
-    if (hasStopped) {
-      setModels(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(key => {
-          if (next[key].isLoading) {
-            next[key] = { ...next[key], isLoading: false, abortController: null, error: '用户已停止生成' };
-          }
-        });
-        return next;
-      });
-    }
   };
 
-  const handleSubmit = async (e: React.FormEvent, templateText?: string) => {
-    e.preventDefault();
+  // 【核心修改】提交逻辑：调用本地 API /api/chat
+  const handleSubmit = async (e?: React.FormEvent, templateText?: string) => {
+    if (e) e.preventDefault();
     const finalInput = templateText || input.trim();
     if (!finalInput) return;
-
-    if (Object.values(models).some(m => m.isLoading)) {
-      stopAllGenerations();
-      return;
-    }
+    if (Object.values(models).some(m => m.isLoading)) { stopAllGenerations(); return; }
 
     lastQuestionRef.current = finalInput;
-
-    let lengthConstraint = "";
-    switch (responseLength) {
-      case 'brief': lengthConstraint = "\n\n[重要要求]: 请极度精简，仅输出核心结论或最终答案，去除所有铺垫、解释和废话。控制在 50 字以内。"; break;
-      case 'concise': lengthConstraint = "\n\n[重要要求]: 请简洁回复，直接给出关键点和必要步骤，去除冗余铺垫。控制在 150 字以内。"; break;
-      case 'standard': lengthConstraint = "\n\n[重要要求]: 请提供标准回复，包含清晰的步骤、必要的解释和适度的示例。保持结构完整，篇幅适中。"; break;
-      case 'detailed': lengthConstraint = "\n\n[重要要求]: 请提供详尽的深度回复。必须包含：1. 核心原理分析 2. 完整的代码示例或详细步骤 3. 边界情况处理 4. 扩展思考或最佳实践。不要吝啬篇幅，越详细越好。"; break;
-    }
-
+    const constraints: Record<ResponseLength, string> = {
+      brief: "\n[要求]: 极度精简，50 字内。", concise: "\n[要求]: 简洁回复，150 字内。",
+      standard: "\n[要求]: 标准回复，结构完整。", detailed: "\n[要求]: 详尽深度回复。"
+    };
+    const constraint = constraints[responseLength];
     if (!templateText) setInput('');
     
-    setCompareScoreData([]);
-    setCompareJudgeResult(null);
-    setCompareFusionResult(null);
-    setSelectedItems([]);
-    setIsCompareViewOpen(false);
-    setIsComparingJudging(false);
-    setIsComparingFusing(false);
+    setCompareScoreData([]); setCompareJudgeResult(null); setCompareFusionResult(null);
+    setSelectedItems([]); setIsCompareViewOpen(false);
 
     const timestamp = Date.now();
     const controllers: Record<string, AbortController> = {};
-    Object.keys(models).forEach(key => { controllers[key] = new AbortController(); });
+    Object.keys(models).forEach(k => controllers[k] = new AbortController());
 
     setModels(prev => {
       const next = { ...prev };
-      Object.keys(next).forEach(key => {
-        next[key] = {
-          ...next[key],
-          messages: [...next[key].messages, { role: 'user', content: finalInput, id: `${key}-${timestamp}-u` }, { role: 'assistant', content: '', id: `${key}-${timestamp}-a` }],
-          isLoading: true, 
-          error: undefined,
-          abortController: controllers[key]
+      Object.keys(next).forEach(k => {
+        next[k] = {
+          ...next[k],
+          messages: [...next[k].messages, { role: 'user', content: finalInput, id: `${k}-${timestamp}-u` }, { role: 'assistant', content: '', id: `${k}-${timestamp}-a` }],
+          isLoading: true, error: undefined, abortController: controllers[k]
         };
       });
       return next;
@@ -299,46 +237,28 @@ export default function Home() {
 
     const promises = Object.keys(models).map(async (modelName) => {
       const controller = controllers[modelName];
-      
-      // 不再需要检查用户输入的 apiKey，因为由后端环境变量提供
-      
       try {
-        // 1. 确定模型对应的英文代号
-        let apiModelName = '';
-        if (modelName === 'DeepSeek') apiModelName = 'deepseek-chat';
-        else if (modelName === '通义千问') apiModelName = 'qwen-plus';
-        else if (modelName === '豆包') apiModelName = 'doubao-seed-2-0-pro-260215';
-
-        // 2. 构建请求体
-        const currentMessages = models[modelName].messages.filter(m => m.role !== 'system');
-        const newMessage = { role: 'user' as const, content: finalInput + lengthConstraint, id: `temp-${Date.now()}` };
-        
-        const requestBody = {
-          model: apiModelName,
-          messages: [...currentMessages, newMessage],
-          stream: true
-        };
-
-        // 3. 发起请求 -> 指向本地 API /api/judge
-        const response = await fetch('/api/judge', {
+        // 调用本地后端接口，而不是直接调用第三方
+        const response = await fetch('/api/chat', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modelType: modelName,
+            prompt: finalInput + constraint,
+            history: models[modelName].messages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content }))
+          }),
           signal: controller.signal
         });
 
         if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errText.slice(0, 100)}`);
+          const err = await response.json();
+          throw new Error(err.error || `HTTP ${response.status}`);
         }
         if (!response.body) throw new Error('No response body');
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        let accumulatedText = '';
-
+        let acc = '';
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -348,628 +268,214 @@ export default function Home() {
               try {
                 const json = JSON.parse(line.slice(6));
                 const content = json.choices?.[0]?.delta?.content || '';
-                accumulatedText += content;
+                acc += content;
                 setModels(prev => {
                   if (!prev[modelName].isLoading) return prev;
                   const msgs = [...prev[modelName].messages];
                   const idx = msgs.findIndex(m => m.id === `${modelName}-${timestamp}-a`);
-                  if (idx !== -1) msgs[idx].content = accumulatedText;
+                  if (idx !== -1) msgs[idx].content = acc;
                   return { ...prev, [modelName]: { ...prev[modelName], messages: msgs } };
                 });
-              } catch (e) { }
+              } catch (e) {}
             }
           }
         }
         setModels(prev => ({ ...prev, [modelName]: { ...prev[modelName], isLoading: false, abortController: null } }));
       } catch (error: any) {
-        if (error.name === 'AbortError') {
-          setModels(prev => ({ ...prev, [modelName]: { ...prev[modelName], isLoading: false, abortController: null, error: '已停止' } }));
-        } else {
+        if (error.name !== 'AbortError') {
           setModels(prev => ({ ...prev, [modelName]: { ...prev[modelName], isLoading: false, abortController: null, error: error.message } }));
         }
       }
     });
-
     await Promise.all(promises);
   };
 
+  // 【核心修改】评委逻辑：调用本地 API /api/judge
   const handleCompareJudge = async () => {
-    // 1. 基础校验：确保至少有两个模型被选中/激活
-    // 兼容你的旧逻辑：如果 selectedItems 为空，尝试从 models 中获取激活的模型
-    const activeModels = Object.keys(models).filter(k => models[k].isActive);
-    
-    if (activeModels.length < 2) {
-      alert('❌ 请至少激活或选择两个模型进行对比');
-      return;
-    }
+    if (selectedItems.length === 0) return;
+    setIsComparingJudging(true); setCompareJudgeResult(null); setCompareScoreData([]); setJudgeTimer(5);
+    const timer = setInterval(() => setJudgeTimer(p => Math.max(0, p - 1)), 1000);
 
-    // 2. 初始化状态
-    setIsComparingJudging(true);
-    setCompareJudgeResult(''); // 改为空字符串，用于累积文本流
-    setCompareScoreData([]);   // 清空旧的评分数据
-    setCompareFusionResult(null);
-    setJudgeTimer(5);          // 保留你的定时器逻辑
-
-    // 启动定时器 (保留原有逻辑)
-    const timerInterval = setInterval(() => { 
-      setJudgeTimer(prev => (prev <= 1 ? 0 : prev - 1)); 
-    }, 1000);
+    const prompt = `请对比以下回答。\n问题：${lastQuestionRef.current}\n\n${selectedItems.map((item, i) => `--- ${item.modelName} ---\n${item.content}`).join('\n\n')}\n\n请严格按 JSON 返回：{"scores":[{"name":"模型","accuracy":1-5,"codeQuality":1-5,"logic":1-5,"creativity":1-5,"shortComment":"8 字评语"}],"summary":"详细点评"}`;
 
     try {
-      // 3. 构建提示词 (兼容你的 selectedItems 或 models 逻辑)
-      const currentQuestion = lastQuestionRef.current || userInput || "未知问题";
-      let promptText = `你是一位资深的 AI 模型评估专家。请对比以下模型对同一问题的回答。\n\n`;
-      promptText += `用户问题：${currentQuestion}\n\n`;
-
-      // 优先使用 selectedItems (如果你的 UI 逻辑是选中项)，否则使用 activeModels
-      const itemsToCompare = selectedItems.length > 0 
-        ? selectedItems 
-        : activeModels.map(key => ({ 
-            modelName: key, 
-            content: models[key].messages.find(m => m.role === 'assistant')?.content || '(无回答)' 
-          }));
-
-      itemsToCompare.forEach((item, i) => {
-        promptText += `【${item.modelName}】的回答:\n${item.content}\n\n`;
-      });
-
-      promptText += `请从准确性、逻辑性、完整性三个维度进行详细点评，指出每个模型的优缺点，并给出最终获胜者和评分（0-100分）。请直接输出文本分析，不需要 JSON 格式。`;
-
-      // 4. 调用后端 API (关键修改：不再前端请求，改走 /api/judge)
-      const response = await fetch('/api/judge', {
+      const res = await fetch('/api/judge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: promptText, modelType: 'deepseek' })
+        body: JSON.stringify({ prompt })
       });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || '评委服务启动失败');
-      }
-
-      // 5. 处理流式响应 (Stream)
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
-
-      while (true) {
-        const { done, value } = await reader!.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split('\n')) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                setCompareJudgeResult(prev => prev + content);
-              }
-            } catch (e) {}
-          }
-        }
-      }
-
-    } catch (error: any) {
-      console.error('Judging failed:', error);
-      setCompareJudgeResult(`❌ 评委出错：${error.message}`);
-    } finally {
-      // 6. 清理状态
-      clearInterval(timerInterval);
-      setJudgeTimer(0);
-      setIsComparingJudging(false);
-    }
-  };
-
-    // 注意：这里也需要调用后端 API 来执行评委逻辑，为了简化，暂时假设后端能处理或前端直接调用（如果后端没写评委接口）
-    // 为了保持一致性，建议也改为调用 /api/chat 并传入特殊的 system prompt，或者单独写一个 /api/judge 路由
-    // 这里暂时保留原有逻辑，但需注意如果前端直连可能会再次遇到 Key 问题。
-    // 最佳实践是创建一个 /api/judge 路由，类似 /api/chat 一样读取环境变量。
-    // 由于篇幅限制，此处假设用户已配置好 /api/chat 能处理大部分请求，或者评委功能暂时由前端直连（需用户在设置里填 Key 用于评委，或者你也把评委逻辑移到后端）。
-    // 为了彻底免 Key，你应该创建一个 app/api/judge/route.ts 类似 chat 的逻辑。
-    // 下面代码暂时保持原样，但请注意如果报错 Missing Key，请参考 chat 的逻辑为 judge 也创建后端路由。
-    
-    const apiKey = settings.apiKeys['DeepSeek'] || settings.apiKeys['通义千问']; 
-    // ⚠️ 注意：如果要彻底免 Key，你需要为评委功能也创建一个后端路由，并在下面调用该路由。
-    // 这里为了快速上线，暂时假设评委功能较少用，或者你可以手动在本地 localStorage 填一个 Key 仅供评委使用。
-    // 更完善的方案：修改下面的 fetch 也指向 '/api/judge' (需你自己创建该路由文件)
-    
-    if (!apiKey) { 
-      clearInterval(timerInterval); 
-      setCompareJudgeResult("⚠️ 评委功能需要配置 API Key。请在代码中完善后端评委路由，或暂时在浏览器控制台 localStorage 填入 key。"); 
-      setIsComparingJudging(false); 
-      return; 
-    }
-
-    try {
-      // 这里暂时保留直连，建议后续改为调用后端
-      const response = await fetch('https://api.deepseek.com/judge/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: judgePrompt }], stream: false })
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || '';
+      if (!res.ok) throw new Error('评委服务失败');
+      const data = await res.json();
+      const content = data.result || '';
       const jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
       const result = JSON.parse(jsonStr);
 
       if (result.scores) {
-        const scoredData = result.scores.map((s: any) => {
+        const scored = result.scores.map((s: any) => {
           const scoresMap: Record<string, number> = {};
           let total = 0;
-          settings.dimensions.forEach(dim => { const val = s[dim.key] || 0; scoresMap[dim.key] = val; total += val; });
+          DEFAULT_DIMENSIONS.forEach(d => { const v = Number(s[d.key])||0; scoresMap[d.key]=v; total+=v; });
           return { name: s.name, scores: scoresMap, total, shortComment: s.shortComment };
-        }).sort((a: any, b: any) => b.total - a.total);
-        if (scoredData.length > 0) scoredData[0].isBest = true;
-        setCompareScoreData(scoredData);
+        }).sort((a:any,b:any)=>b.total-a.total);
+        if(scored.length) scored[0].isBest = true;
+        setCompareScoreData(scored);
       }
-      if (result.summary) setCompareJudgeResult(result.summary);
+      if(result.summary) setCompareJudgeResult(result.summary);
     } catch (error: any) {
-      setCompareJudgeResult(`❌ 评分生成失败：${error.message}`);
+      setCompareJudgeResult(`❌ 出错：${error.message}`);
     } finally {
-      clearInterval(timerInterval); setIsComparingJudging(false); setJudgeTimer(0);
+      clearInterval(timer); setIsComparingJudging(false); setJudgeTimer(0);
     }
   };
 
   const retryModel = (modelName: string) => {
-    const lastUserMsg = models[modelName].messages.filter(m => m.role === 'user').pop();
-    if (lastUserMsg) {
-      setModels(prev => ({
-        ...prev, 
-        [modelName]: { 
-          ...prev[modelName], 
-          messages: prev[modelName].messages.filter(m => !(m.id.includes('-a') && (m.content === '' || m.content === '已停止' || m.content.startsWith('⚠️') || m.content.startsWith('HTTP')))), 
-          isLoading: false, error: undefined 
-        } 
-      }));
-      handleSubmit(new MouseEvent('submit') as any, lastUserMsg.content);
-    }
-  };
-
-  const handleCompareFusion = async () => {
-    if (compareScoreData.length === 0) return;
-    setIsComparingFusing(true); setCompareFusionResult(null); setFusionTimer(5);
-    const timerInterval = setInterval(() => { setFusionTimer(prev => (prev <= 1 ? 0 : prev - 1)); }, 1000);
-
-    const fusePrompt = `
-      你是一位全能型专家。请综合以下 ${selectedItems.length} 个模型的回答，生成一个“终极融合方案”。
-      用户问题：${lastQuestionRef.current}
-      参考回答：
-      ${selectedItems.map(item => `--- ${item.modelName} ---\n${item.content}`).join('\n\n')}
-      要求：取长补短，格式完美。直接输出最终结果，使用 Markdown 格式。
-    `;
-
-    // 同样，融合功能也建议走后端路由，这里暂时保留直连逻辑，需确保有 Key可以用
-    // 若要彻底免 Key，请创建 /api/fuse 路由
-    const apiKey = settings.apiKeys['DeepSeek'] || settings.apiKeys['通义千问'];
-    if (!apiKey) { clearInterval(timerInterval); setCompareFusionResult("⚠️ 融合功能需要配置 API Key。"); setIsComparingFusing(false); return; }
-
-    try {
-      const response = await fetch('https://api.deepseek.com/judge/completions', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: fusePrompt }], stream: false })
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      setCompareFusionResult(data.choices?.[0]?.message?.content || '');
-    } catch (error: any) {
-      setCompareFusionResult(`❌ 融合失败：${error.message}`);
-    } finally {
-      clearInterval(timerInterval); setIsComparingFusing(false); setFusionTimer(0);
+    const last = models[modelName].messages.filter(m => m.role === 'user').pop();
+    if (last) {
+      setModels(prev => ({ ...prev, [modelName]: { ...prev[modelName], messages: prev[modelName].messages.filter(m => !m.id.endsWith('-a') || (m.content && !m.content.startsWith('⚠️') && m.content !== '已停止')), isLoading: false, error: undefined } }));
+      handleSubmit(undefined, last.content);
     }
   };
 
   const toggleSelectMessage = (modelName: string, messageId: string, content: string, colorClass: string) => {
     setSelectedItems(prev => {
-      const existsIndex = prev.findIndex(item => item.messageId === messageId);
-      if (existsIndex !== -1) return prev.filter(item => item.messageId !== messageId);
-      if (prev.length >= 3) { setTimeout(() => alert("最多选 3 条"), 0); return prev; }
+      if (prev.some(i => i.messageId === messageId)) return prev.filter(i => i.messageId !== messageId);
+      if (prev.length >= 3) { alert("最多选 3 条"); return prev; }
       return [...prev, { modelName, messageId, content, colorClass }];
     });
   };
 
-  const clearAllSelections = () => setSelectedItems([]);
-
-  const radarChartData = settings.dimensions.map(dim => {
-    const dataPoint: any = { subject: dim.label };
-    compareScoreData.forEach(model => { dataPoint[model.name] = model.scores[dim.key] || 0; });
-    return dataPoint;
+  const radarChartData = DEFAULT_DIMENSIONS.map(dim => {
+    const pt: any = { subject: dim.label };
+    compareScoreData.forEach(m => pt[m.name] = m.scores[dim.key] || 0);
+    return pt;
   });
 
   const responseOptions = [
-    { value: 'brief', label: '简要回复', icon: (props: any) => <EmojiIcon emoji="🚲" />, color: 'text-gray-500', activeColor: 'bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-200' },
-    { value: 'concise', label: '简洁回复', icon: (props: any) => <EmojiIcon emoji="🏎️" />, color: 'text-blue-500', activeColor: 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/40 dark:border-blue-700 dark:text-blue-300' },
-    { value: 'standard', label: '标准回复', icon: (props: any) => <EmojiIcon emoji="✈️" />, color: 'text-indigo-500', activeColor: 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900/40 dark:border-indigo-700 dark:text-indigo-300' },
-    { value: 'detailed', label: '详细回复', icon: (props: any) => <EmojiIcon emoji="🛸" />, color: 'text-purple-500', activeColor: 'bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/40 dark:border-purple-700 dark:text-purple-300' },
+    { value: 'brief', label: '极简', icon: Zap, color: 'text-gray-500', activeColor: 'bg-gray-100 border-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-200' },
+    { value: 'concise', label: '简洁', icon: Rocket, color: 'text-blue-500', activeColor: 'bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
+    { value: 'standard', label: '标准', icon: Scale, color: 'text-indigo-500', activeColor: 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
+    { value: 'detailed', label: '详细', icon: Layers, color: 'text-purple-500', activeColor: 'bg-purple-100 border-purple-300 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' },
   ];
-
   const isAnyLoading = Object.values(models).some(m => m.isLoading);
 
   return (
-    <div className="flex h-screen bg-[var(--background)] overflow-hidden">
-      {/* --- 侧边栏 --- */}
-      <div className={`${isSidebarOpen ? 'w-64' : 'w-0'} transition-all duration-300 ease-in-out bg-white dark:bg-[#0F172A] border-r border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden relative z-40`}>
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 min-w-[16rem]">
-          <button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 font-medium text-sm">
-            <MessageSquarePlus className="w-4 h-4" /><span>新对话</span>
-          </button>
-        </div>
-        <div className="flex-grow overflow-y-auto p-2 space-y-1 min-w-[16rem]">
-          <div className="px-3 py-2 flex items-center gap-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-            <History className="w-3.5 h-3.5" /><span>历史记录</span>
-          </div>
-          {sessions.length === 0 ? <p className="text-xs text-gray-400 text-center mt-4">暂无历史记录</p> : sessions.map(session => (
-            <div key={session.id} onClick={() => loadSession(session.id)} className={`group p-3 rounded-lg cursor-pointer text-sm transition-all ${currentSessionId === session.id ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 border border-transparent'}`}>
-              <div className="font-medium truncate">{session.title}</div>
-              <div className="text-[10px] opacity-60 mt-1 flex justify-between"><span>{new Date(session.timestamp).toLocaleDateString()}</span><button onClick={(e) => deleteSession(e, session.id)} className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity">🗑️</button></div>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans overflow-hidden">
+      {/* 侧边栏 */}
+      <div className={`${isSidebarOpen ? 'w-64' : 'w-0'} flex-shrink-0 bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 overflow-hidden flex flex-col relative z-20`}>
+        <div className="p-4"><button onClick={createNewSession} className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium shadow-sm"><MessageSquarePlus size={18}/> 新对话</button></div>
+        <div className="flex-1 overflow-y-auto px-3 space-y-1">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-2 mt-2">历史记录</div>
+          {sessions.length === 0 ? <div className="text-sm text-gray-400 px-3">暂无记录</div> : sessions.map(s => (
+            <div key={s.id} onClick={() => loadSession(s.id)} className={`group p-3 rounded-lg cursor-pointer text-sm transition-all relative ${currentSessionId === s.id ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200' : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+              <div className="font-medium truncate pr-6">{s.title}</div><div className="text-xs opacity-70 mt-1">{new Date(s.timestamp).toLocaleDateString()}</div>
+              <button onClick={(e) => deleteSession(e, s.id)} className="absolute right-2 top-3 opacity-0 group-hover:opacity-100 hover:text-red-500"><Trash2 size={14}/></button>
             </div>
           ))}
         </div>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 min-w-[16rem] bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 space-y-2">
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 truncate max-w-[100px]">{user.username}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 animate-pulse">BETA</span>
-            </div>
-            <div className="flex justify-between items-center text-xs text-indigo-600 dark:text-indigo-400 font-medium">
-              <span>✨ 公测无限体验中</span>
-            </div>
-            <button onClick={() => setShowUpgradeModal(true)} className="w-full text-xs bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 py-1.5 rounded-lg transition-colors font-medium shadow-sm">
-              查看公测计划
-            </button>
-          </div>
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex items-center gap-3 mb-3"><div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs">{user.username.charAt(0)}</div><div><div className="text-sm font-medium">{user.username}</div><div className="text-xs text-green-600 dark:text-green-400 font-bold flex items-center gap-1"><Sparkles size={10}/> 公测中</div></div></div>
+          <button onClick={() => setShowBetaModal(true)} className="w-full text-xs bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 py-1.5 rounded-lg font-medium">查看公测权益</button>
         </div>
       </div>
 
-      {/* --- 主内容区 --- */}
-      <div className="flex-grow flex flex-col min-w-0 relative">
-        <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#0F172A]/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 px-4 py-3 shadow-sm flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
-            <div className="hidden md:block">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                元合AI 对比助手 <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-0.5 rounded-full uppercase">公开测试版 版本号【0.9】</span>
-              </h1>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase">全场景内容AI实时评估 • 方案智能融合</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-             <button onClick={() => { if(!confirm('确定清空？')) return; localStorage.removeItem('ai_compare_sessions'); setSessions([]); createNewSession(); }} className="text-xs font-semibold text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">清空</button>
-          </div>
+      {/* 主内容 */}
+      <div className="flex-1 flex flex-col min-w-0 relative">
+        <header className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur flex items-center justify-between px-4 z-10">
+          <div className="flex items-center gap-3"><button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"><Menu size={20}/></button><h1 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 hidden sm:block">AI 对比助手</h1></div>
+          <button onClick={() => {if(confirm('清空？')){localStorage.removeItem('ai_compare_sessions');setSessions([]);createNewSession();}}} className="text-xs text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">清空历史</button>
         </header>
-
-        <div className="flex-grow p-4 md:p-6 overflow-y-auto pb-10">
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Object.values(models).map((model) => {
-              const isMobileActive = activeTab === model.name;
-              return (
-                <div key={model.name} className={`flex flex-col bg-white dark:bg-[#1E293B] rounded-2xl shadow-xl border border-white/20 dark:border-gray-700 overflow-hidden transition-all ${isMobileActive ? 'flex' : 'hidden'} md:flex`}>
-                  <div className="relative px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
-                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${model.gradientClass} opacity-90`}></div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2.5"><div className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${model.gradientClass}`}></div><h2 className="font-bold text-sm text-gray-700 dark:text-gray-200">{model.name}</h2></div>
-                      <div className="flex items-center gap-2">
-                        {model.isLoading && (
-                          <button onClick={() => stopGeneration(model.name)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-1.5 rounded-full transition-colors" title="停止此模型">
-                            <Square className="w-4 h-4 fill-current" />
-                          </button>
-                        )}
-                        {!model.isLoading && model.error && (
-                          <button onClick={() => retryModel(model.name)} className="text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 p-1 rounded" title="重试">
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                        )}
-                         {model.isLoading && !model.error && (
-                           <div className="flex gap-1"><span className={`w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce`}></span><span className={`w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce delay-100`}></span><span className={`w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce delay-200`}></span></div>
-                         )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-grow p-5 space-y-6">
-                    {model.messages.length === 0 ? (
-                      <div className="h-40 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 opacity-60">
-                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${model.gradientClass} bg-opacity-10 flex items-center justify-center mb-3`}><div className={`w-6 h-6 rounded-full bg-gradient-to-br ${model.gradientClass}`}></div></div>
-                        <p className="text-sm font-medium">准备就绪</p>
-                      </div>
-                    ) : (
-                      model.messages.map((msg) => {
-                        const isSelected = selectedItems.some(item => item.messageId === msg.id);
-                        return (
-                          <div key={msg.id} className={`group relative flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            {msg.role === 'assistant' && !model.error && (
-                              <button type="button" onClick={(e) => { e.stopPropagation(); toggleSelectMessage(model.name, msg.id, msg.content, model.colorClass); }} className={`absolute -top-3 -right-3 z-10 px-3 py-1.5 rounded-full shadow-lg border flex items-center gap-1.5 transition-all duration-200 text-xs font-bold ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 scale-105' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:text-indigo-600 hover:border-indigo-300'}`}>
-                                <Scale className="w-3.5 h-3.5" /> <span>{isSelected ? '已选' : '加入对比'}</span>
-                              </button>
-                            )}
-                            <div className={`max-w-[90%] rounded-2xl px-4 py-3 text-[0.95rem] leading-relaxed shadow-sm transition-all duration-200 ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 text-gray-800 dark:text-gray-200 rounded-bl-none border-2 border-indigo-500 ring-2 ring-indigo-200 dark:ring-indigo-900' : model.error ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-bl-none' : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-bl-none border border-gray-100 dark:border-gray-700 prose prose-sm max-w-none dark:prose-invert'}`}>
-                              {model.error && msg.role === 'assistant' ? (
-                                <div className="flex flex-col gap-2">
-                                  <span className="font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4"/> {msg.content === '已停止' ? '生成已停止' : '请求失败'}</span>
-                                  <p className="text-sm">{msg.content !== '已停止' ? msg.content : '您手动停止了本次生成。'}</p>
-                                  {msg.content !== '已停止' && <button onClick={() => retryModel(model.name)} className="self-start text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-3 py-1 rounded">点击重试</button>}
-                                </div>
-                              ) : msg.role === 'assistant' ? (
-                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: ({ node, inline, className, children }: any) => { const match = /language-(\w+)/.exec(className || ''); const lang = match ? match[1] : ''; const content = String(children).replace(/\n$/, ''); if (inline) return <code className="bg-indigo-100 dark:bg-indigo-900/40 text-pink-600 dark:text-pink-400 px-1.5 py-0.5 rounded text-xs font-mono font-semibold">{children}</code>; return <CodeBlock language={lang}>{content}</CodeBlock>; }, table: ({children}) => <div className="overflow-x-auto"><table className="min-w-full border border-gray-200 dark:border-gray-700 text-sm rounded-lg overflow-hidden">{children}</table></div>, th: ({children}) => <th className="border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700/50 p-2.5 text-left font-bold text-xs uppercase">{children}</th>, td: ({children}) => <td className="border border-gray-200 dark:border-gray-700 p-2.5">{children}</td> }}>{msg.content}</ReactMarkdown>
-                              ) : (<p className="whitespace-pre-wrap font-medium">{msg.content}</p>)}
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                    {/* 修复 ref 类型错误：使用大括号且不返回值 */}
-                    <div ref={(el) => { scrollRefs.current[model.name] = el; }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          
-           {isCompareViewOpen && (
-            <div ref={compareViewRef} className="fixed inset-0 z-50 bg-gray-900/90 backdrop-blur-sm flex flex-col animate-fade-in compare-view-content">
-              <div className="flex justify-between items-center p-4 border-b border-gray-700 bg-gray-900 shrink-0">
-                <h2 className="text-white font-bold text-lg flex items-center gap-2"><Scale className="w-6 h-6" /> 深度对比视图</h2>
-                <div className="flex gap-3">
-                   <button onClick={clearAllSelections} className="text-xs text-gray-400 hover:text-white underline">清空所选</button>
-                   <button onClick={() => setIsCompareViewOpen(false)} className="text-white bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors">关闭视图</button>
+        
+        <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+          {Object.values(models).map(model => (
+            <div key={model.name} className={`flex-1 flex flex-col min-w-0 border-r border-gray-200 dark:border-gray-800 last:border-0 ${activeTab === model.name ? 'flex' : 'hidden md:flex'}`}>
+              <div className="h-10 flex items-center justify-between px-4 bg-white/50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-800">
+                <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${model.colorClass}`}/><span className="font-semibold text-sm">{model.name}</span></div>
+                <div className="flex items-center gap-1">
+                  {model.isLoading ? <button onClick={() => stopGeneration(model.name)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X size={16}/></button> : model.error ? <button onClick={() => retryModel(model.name)} className="text-orange-500 hover:bg-orange-50 p-1 rounded"><RefreshCw size={14}/></button> : null}
+                  {model.isLoading && !model.error && <Loader2 size={14} className="animate-spin text-indigo-500"/>}
                 </div>
               </div>
-              <div className="flex-grow overflow-auto p-6">
-                <div className="max-w-7xl mx-auto mb-10 space-y-6">
-                  {!compareJudgeResult && !isComparingJudging && compareScoreData.length === 0 && (
-                    <div className="flex justify-center py-8">
-                      <button onClick={handleCompareJudge} className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all font-bold text-lg flex items-center gap-3">
-                        <BrainCircuit className="w-6 h-6" /> 启动 AI 评委 <span className="text-xs bg-white/20 px-2 py-1 rounded ml-2">公测免费</span>
-                      </button>
-                    </div>
-                  )}
-                  {(isComparingJudging || compareJudgeResult || compareScoreData.length > 0) && (
-                    <div className="space-y-6 animate-fade-in-up">
-                      {isComparingJudging && compareScoreData.length === 0 && (
-                        <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-xl border border-indigo-100 dark:border-indigo-900 p-12 flex flex-col items-center justify-center text-center min-h-[300px]">
-                          <div className="relative mb-6"><div className="absolute inset-0 bg-indigo-500 blur-xl opacity-20 animate-pulse rounded-full"></div><Clock className="w-16 h-16 text-indigo-600 dark:text-indigo-400 animate-bounce" /></div>
-                          <h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">AI 评委正在分析中...</h3>
-                          <p className="text-gray-500 dark:text-gray-400 mb-6">正在从多维度评估模型表现</p>
-                          <div className="text-5xl font-mono font-bold text-indigo-600 dark:text-indigo-400">{judgeTimer > 0 ? judgeTimer : '...'}</div>
-                        </div>
-                      )}
-                      {(!isComparingJudging || compareScoreData.length > 0) && compareScoreData.length > 0 && (
-                        <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-xl border border-indigo-100 dark:border-indigo-900 overflow-hidden">
-                          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-8 py-5 flex justify-between items-center">
-                            <h3 className="text-white font-bold text-xl flex items-center gap-2"><Trophy className="w-6 h-6" /> 多维评分看板</h3>
-                            <span className="text-xs bg-white/20 px-3 py-1.5 rounded-full text-white font-medium">总分上限 {settings.dimensions.reduce((acc, d) => acc + d.max, 0)}</span>
-                          </div>
-                          <div className="p-8">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                              <div className="lg:col-span-2 overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead><tr className="border-b-2 border-gray-100 dark:border-gray-700 text-gray-500 dark:text-gray-400"><th className="pb-4 text-left font-bold uppercase tracking-wider w-1/3">模型表现</th><th className="pb-4 text-center font-bold uppercase tracking-wider">各项得分</th><th className="pb-4 text-right font-bold uppercase tracking-wider">总分</th></tr></thead>
-                                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                    {compareScoreData.map((score) => (
-                                      <tr key={score.name} className={`transition-colors ${score.isBest ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
-                                        <td className="py-5 pr-4"><div className="flex items-center gap-3 mb-2">{score.isBest && <Trophy className="w-5 h-5 text-yellow-500 shrink-0" />}<span className={`font-bold text-lg ${score.isBest ? 'text-yellow-700 dark:text-yellow-400' : 'text-gray-800 dark:text-gray-200'}`}>{score.name}</span></div>{score.shortComment && (<span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${score.isBest ? 'bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700' : 'bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'}`}>💡 {score.shortComment}</span>)}</td>
-                                        <td className="py-5"><div className="flex flex-col gap-2">{settings.dimensions.map(dim => (<div key={dim.key} className="flex items-center justify-between gap-4 text-xs"><span className="text-gray-500 dark:text-gray-400 w-20 truncate">{dim.label}</span><div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden"><div className={`h-full rounded-full ${score.isBest ? 'bg-yellow-500' : 'bg-indigo-500'}`} style={{ width: `${(score.scores[dim.key] || 0) / dim.max * 100}%` }}></div></div><div className="flex text-yellow-500 w-20 justify-end">{[...Array(dim.max)].map((_, i) => (<Star key={i} className={`w-3 h-3 ${i < (score.scores[dim.key] || 0) ? 'fill-current' : 'text-gray-200 dark:text-gray-700'}`} />))}</div></div>))}</div></td>
-                                        <td className="text-right py-5"><div className={`inline-flex items-center justify-center w-14 h-14 rounded-2xl text-xl font-bold shadow-sm ${score.isBest ? 'bg-yellow-500 text-white shadow-yellow-500/30' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>{score.total}</div></td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                              <div className="lg:col-span-1 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 flex items-center justify-center min-h-[300px]">
-                                <ResponsiveContainer width="100%" height={300}><RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarChartData}><PolarGrid stroke="#374151" strokeOpacity={0.3} /><PolarAngleAxis dataKey="subject" tick={{ fill: '#9CA3AF', fontSize: 12, fontWeight: '600' }} /><PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />{compareScoreData.map((entry, index) => { const colors = ['#F59E0B', '#3B82F6', '#10B981']; return (<Radar key={entry.name} name={entry.name} dataKey={entry.name} stroke={colors[index % colors.length]} fill={colors[index % colors.length]} fillOpacity={0.4} strokeWidth={2} />); })}<Tooltip contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#fff', borderRadius: '8px' }} /><Legend wrapperStyle={{ paddingTop: '20px' }} /></RadarChart></ResponsiveContainer>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {compareJudgeResult && !isComparingJudging && (
-                        <div className="bg-white dark:bg-[#1E293B] rounded-2xl shadow-lg border dark:border-gray-700 overflow-hidden">
-                          <div className="bg-indigo-50 dark:bg-indigo-900/20 px-6 py-4 border-b border-indigo-100 dark:border-indigo-800"><h3 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2"><BrainCircuit className="w-5 h-5"/> AI 专家深度点评</h3></div>
-                          <div className="p-6 prose dark:prose-invert max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ h3: ({children}) => <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-6 mb-3 flex items-center gap-2">{children}</h3>, ul: ({children}) => <ul className="list-disc pl-5 space-y-1 text-gray-600 dark:text-gray-300">{children}</ul>, li: ({children}) => <li className="text-sm">{children}</li>, blockquote: ({children}) => <blockquote className="border-l-4 border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-r-lg italic text-gray-700 dark:text-gray-300 my-4">{children}</blockquote> }}>{compareJudgeResult}</ReactMarkdown></div>
-                        </div>
-                      )}
-                      {!compareFusionResult && !isComparingFusing && compareScoreData.length > 0 && (
-                        <div className="flex justify-center py-4"><button onClick={handleCompareFusion} className="px-8 py-4 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 text-white rounded-full shadow-2xl hover:scale-105 transition-all font-bold text-lg flex items-center gap-3"><Sparkles className="w-6 h-6 animate-pulse" /> 生成终极融合方案 <span className="text-xs bg-white/20 px-2 py-1 rounded ml-2">公测免费</span></button></div>
-                      )}
-                      {isComparingFusing && !compareFusionResult && (
-                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-12 border border-indigo-200 dark:border-indigo-800 flex flex-col items-center justify-center text-center min-h-[200px]">
-                            <div className="relative mb-4"><Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin" /></div>
-                            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">正在融合各家精华...</h3>
-                            <p className="text-gray-500 dark:text-gray-400 mb-4">提取最优解，生成终极方案</p>
-                            <div className="text-4xl font-mono font-bold text-indigo-600 dark:text-indigo-400">{fusionTimer > 0 ? fusionTimer : '...'}</div>
-                         </div>
-                      )}
-                      {compareFusionResult && !isComparingFusing && (
-                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-2xl p-0 border border-indigo-200 dark:border-indigo-800 overflow-hidden">
-                          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4 flex justify-between items-center"><h3 className="font-bold text-white flex items-center gap-2"><CheckCircle className="w-5 h-5"/> 终极融合方案</h3><span className="text-xs bg-white/20 px-2 py-1 rounded text-white">集三家之长</span></div>
-                          <div className="p-8 max-w-5xl mx-auto"><div className="prose dark:prose-invert text-base bg-white/60 dark:bg-black/20 p-6 rounded-xl shadow-inner max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock as any }}>{compareFusionResult}</ReactMarkdown></div></div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                <div className={`grid gap-6 ${selectedItems.length === 1 ? 'grid-cols-1 max-w-3xl mx-auto' : selectedItems.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                  {selectedItems.map((item) => (
-                    <div key={item.messageId} className="bg-white dark:bg-[#1E293B] rounded-xl shadow-2xl border border-gray-700 flex flex-col overflow-hidden">
-                      <div className="px-4 py-3 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-gray-700 to-gray-600">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${item.colorClass}`}></div>
-                          <span className="text-white font-bold text-sm">{item.modelName}</span>
-                        </div>
-                        <button onClick={() => toggleSelectMessage(item.modelName, item.messageId, '', '')} className="text-white/70 hover:text-white">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                        </button>
-                      </div>
-                      <div className="p-5 overflow-y-auto prose prose-sm dark:prose-invert max-h-[70vh]">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: CodeBlock as any }}>{item.content}</ReactMarkdown>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="sticky bottom-0 p-4 md:p-6 bg-gradient-to-t from-[var(--background)] via-[var(--background)] to-transparent pt-10 z-20 shrink-0">
-          <form onSubmit={handleSubmit} className="max-w-4xl mx-auto relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-500"></div>
-            <div className="relative bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-700 shadow-2xl rounded-3xl flex flex-col overflow-hidden">
-              {selectedItems.length > 0 && (
-                <div className="bg-indigo-50/80 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800 p-3 animate-fade-in-down">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-2">
-                      <Scale className="w-3.5 h-3.5" /> 已选对比项 ({selectedItems.length}/3)
-                    </span>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setIsCompareViewOpen(true)} className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md font-medium transition-colors shadow-sm">查看对比视图</button>
-                      <button type="button" onClick={clearAllSelections} className="text-xs text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30 px-2 py-1 rounded-md transition-colors flex items-center gap-1"><Trash2 className="w-3 h-3" /> 清空</button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedItems.map((item) => (
-                      <div key={item.messageId} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 px-2.5 py-1.5 rounded-lg shadow-sm">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${item.colorClass}`}></div>
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px]">{item.modelName}</span>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); toggleSelectMessage(item.modelName, item.messageId, '', ''); }} className="text-gray-400 hover:text-red-500 p-0.5 shrink-0"><X className="w-3 h-3" /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2 p-2 overflow-x-auto no-scrollbar border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
-                {responseOptions.map((opt) => {
-                  const Icon = opt.icon;
-                  const isActive = responseLength === opt.value;
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {model.messages.length === 0 ? <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60"><BrainCircuit size={48} strokeWidth={1} className="mb-2"/><span className="text-sm">准备就绪</span></div> : model.messages.map(msg => {
+                  const isSelected = selectedItems.some(i => i.messageId === msg.id);
                   return (
-                    <button key={opt.value} type="button" onClick={() => setResponseLength(opt.value as ResponseLength)} className={`px-3 py-1.5 rounded-full border text-[10px] font-medium transition-all whitespace-nowrap shadow-sm flex items-center gap-1.5 ${isActive ? opt.activeColor : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
-                      <span className={`flex items-center justify-center ${isActive ? '' : opt.color}`}><Icon /></span>
-                      {opt.label}
-                    </button>
+                    <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      {msg.role === 'assistant' && !model.error && <button onClick={(e) => {e.stopPropagation(); toggleSelectMessage(model.name, msg.id, msg.content, model.colorClass);}} className={`absolute -top-3 -right-3 z-10 px-3 py-1.5 rounded-full shadow-lg border text-xs font-bold transition-all ${isSelected ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:text-indigo-600'}`}>{isSelected ? '已选' : '对比'}</button>}
+                      <div className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : model.error ? 'bg-red-50 dark:bg-red-900/20 text-red-700 border border-red-200 dark:border-red-800 rounded-bl-none w-full' : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-bl-none w-full'}`}>
+                        {model.error ? <div><div className="font-bold flex items-center gap-2"><AlertCircle size={16}/> 失败</div><div className="text-xs mt-1 opacity-90">{msg.content}</div><button onClick={() => retryModel(model.name)} className="mt-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded">重试</button></div> : msg.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: ({node, inline, className, children, ...props}: any) => { const match = /language-(\w+)/.exec(className || ''); return inline ? <code {...props}>{children}</code> : <CodeBlock language={match?.[1]}>{String(children).replace(/\n$/, '')}</CodeBlock>; } }}>{msg.content}</ReactMarkdown> : <div className="whitespace-pre-wrap">{msg.content}</div>}
+                      </div>
+                    </div>
                   );
                 })}
-                <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1 self-center"></div>
-                {PROMPT_TEMPLATES.map((tpl) => (
-                  <button key={tpl.label} type="button" onClick={(e) => handleSubmit(e, tpl.text)} disabled={isAnyLoading} className="px-3 py-1 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[10px] font-medium text-gray-600 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 transition-all whitespace-nowrap shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">{tpl.label}</button>
-                ))}
-              </div>
-              <div className="flex items-end p-3 gap-3">
-                <textarea 
-                  value={input} 
-                  onChange={(e) => setInput(e.target.value)} 
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(e); }}} 
-                  placeholder={isAnyLoading ? "AI 正在生成中... (可点击下方红色按钮停止)" : "请输入问题，AI 将实时对比三家模型的回答..."} 
-                  className="w-full bg-transparent border-none focus:ring-0 text-gray-800 dark:text-gray-100 placeholder-gray-400 resize-none max-h-32 min-h-[44px] py-2 px-1 text-base leading-relaxed" 
-                  rows={1} 
-                  disabled={false} 
-                />
-                {isAnyLoading ? (
-                  <button 
-                    type="button" 
-                    onClick={stopAllGenerations} 
-                    className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center bg-red-500 text-white hover:bg-red-600 transition-all duration-200 shadow-md hover:scale-105 active:scale-95 animate-pulse"
-                    title="一键终止所有生成"
-                  >
-                    <Square className="w-5 h-5 fill-current" />
-                  </button>
-                ) : (
-                  <button 
-                    type="submit" 
-                    disabled={!input.trim()} 
-                    className={`shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center transition-all duration-200 shadow-md ${input.trim() ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 hover:-rotate-12 active:scale-95' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'}`}
-                  >
-                    <svg className="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" /></svg>
-                  </button>
-                )}
+                <div ref={el => scrollRefs.current[model.name] = el} />
               </div>
             </div>
-            <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 mt-2 font-semibold tracking-widest uppercase">Powered by Real-time LLM Evaluation • Public Beta</p>
-          </form>
+          ))}
         </div>
+
+        {/* 输入区 */}
+        <div className="p-4 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 z-10">
+          {selectedItems.length > 0 && (
+            <div className="mb-3 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2 animate-in slide-in-from-bottom-2">
+              <div className="flex items-center gap-2 overflow-x-auto max-w-[70%]">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 whitespace-nowrap">已选 {selectedItems.length}/3</span>
+                {selectedItems.map(item => <span key={item.messageId} className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-gray-800 rounded text-xs border border-indigo-200 dark:border-indigo-700">{item.modelName} <button onClick={() => toggleSelectMessage(item.modelName, item.messageId, '', '')}><X size={12}/></button></span>)}
+              </div>
+              <div className="flex gap-2"><button onClick={() => setIsCompareViewOpen(true)} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded hover:bg-indigo-700">查看对比</button><button onClick={() => setSelectedItems([])} className="text-xs text-gray-500 hover:text-red-500">清空</button></div>
+            </div>
+          )}
+          <div className="flex flex-col gap-3 max-w-4xl mx-auto">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-1">{responseOptions.map(opt => { const Icon = opt.icon; const isActive = responseLength === opt.value; return (<button key={opt.value} onClick={() => setResponseLength(opt.value)} className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all flex items-center gap-1.5 ${isActive ? opt.activeColor : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50'}`}><Icon size={12}/> {opt.label}</button>); })}</div>
+              <div className="flex gap-1 overflow-x-auto pb-1">{PROMPT_TEMPLATES.map(tpl => (<button key={tpl.label} onClick={(e) => handleSubmit(e, tpl.text)} disabled={isAnyLoading} className="px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 transition-all whitespace-nowrap disabled:opacity-50">{tpl.label}</button>))}</div>
+            </div>
+            <div className="relative flex items-end gap-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl p-2 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">
+              <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => {if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();handleSubmit();}}} placeholder={isAnyLoading?"生成中...":"输入问题，对比三家模型..."} disabled={isAnyLoading} className="w-full bg-transparent border-none focus:ring-0 text-sm max-h-32 min-h-[44px] resize-none py-2.5 px-2 text-gray-800 dark:text-gray-100 placeholder-gray-400" rows={1}/>
+              <button onClick={() => handleSubmit()} disabled={!input.trim()||isAnyLoading} className="p-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg transition-colors shadow-sm shrink-0">{isAnyLoading?<Loader2 size={18} className="animate-spin"/>:<ChevronRight size={18}/>}</button>
+            </div>
+          </div>
+        </div>
+
+        {/* 对比视图 */}
+        {isCompareViewOpen && (
+          <div className="absolute inset-0 z-30 bg-gray-50 dark:bg-gray-900 flex flex-col animate-in fade-in slide-in-from-bottom-4">
+            <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-6 bg-white dark:bg-gray-950">
+              <h2 className="text-lg font-bold flex items-center gap-2"><Trophy className="text-yellow-500"/> 深度对比</h2>
+              <div className="flex gap-2"><button onClick={()=>{setSelectedItems([]);setIsCompareViewOpen(false);}} className="text-xs text-gray-500 hover:text-red-500 px-3 py-1.5">清空</button><button onClick={()=>setIsCompareViewOpen(false)} className="text-white bg-gray-700 hover:bg-gray-600 px-4 py-1.5 rounded-lg text-sm">关闭</button></div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {!compareJudgeResult && !isComparingJudging && compareScoreData.length===0 ? (
+                <div className="h-full flex flex-col items-center justify-center"><button onClick={handleCompareJudge} className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all font-bold text-lg flex items-center gap-3"><BrainCircuit size={24}/> 启动 AI 评委 <span className="text-xs bg-white/20 px-2 py-1 rounded">公测免费</span></button></div>
+              ) : (
+                <div className="space-y-6 max-w-5xl mx-auto">
+                  {isComparingJudging && compareScoreData.length===0 && <div className="text-center py-20"><Loader2 size={48} className="animate-spin text-indigo-600 mx-auto mb-4"/><h3 className="text-xl font-bold">分析中...</h3><p className="text-gray-500 mt-2">{judgeTimer}s</p></div>}
+                  {compareScoreData.length>0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><BarChart3 size={20}/> 多维评分</h3>
+                      <div className="h-64 w-full"><ResponsiveContainer width="100%" height="100%"><RadarChart data={radarChartData}><PolarGrid stroke="#e5e7eb"/><PolarAngleAxis dataKey="subject" tick={{fill:'#6b7280',fontSize:12}}/><PolarRadiusAxis angle={30} domain={[0,5]} tick={false} axisLine={false}/>{compareScoreData.map((entry,i)=><Radar key={entry.name} name={entry.name} dataKey={entry.name} stroke={i===0?'#F59E0B':'#6366f1'} fill={i===0?'#F59E0B':'#6366f1'} fillOpacity={0.3}/>)}<Tooltip/><Legend/></RadarChart></ResponsiveContainer></div>
+                      <div className="mt-4 space-y-2">{compareScoreData.map((score,i)=><div key={score.name} className={`flex items-center justify-between p-3 rounded-lg border ${score.isBest?'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800':'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'}`}><div className="flex items-center gap-3">{score.isBest&&<Trophy size={16} className="text-yellow-500"/>}<span className="font-bold">{score.name}</span>{score.shortComment&&<span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-0.5 rounded">{score.shortComment}</span>}</div><div className="flex items-center gap-4"><div className="flex gap-1">{DEFAULT_DIMENSIONS.map(d=><div key={d.key} className="flex flex-col items-center"><div className="text-[10px] text-gray-400">{d.label[0]}</div><div className="w-2 h-2 rounded-full bg-gray-300 overflow-hidden"><div className="bg-indigo-500 h-full" style={{height:`${(score.scores[d.key]/d.max)*100}%`}}/></div></div>)}</div><span className={`text-lg font-bold ${score.isBest?'text-yellow-600':'text-gray-700 dark:text-gray-300'}`}>{score.total}<span className="text-xs text-gray-400 font-normal">/{DEFAULT_DIMENSIONS.reduce((a,b)=>a+b.max,0)}</span></span></div></div>)}</div>
+                    </div>
+                  )}
+                  {compareJudgeResult && <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6"><h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Sparkles size={20} className="text-purple-500"/> 专家点评</h3><div className="prose dark:prose-invert max-w-none text-sm"><ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: ({node, inline, className, children, ...props}: any) => { const match = /language-(\w+)/.exec(className || ''); return inline ? <code {...props}>{children}</code> : <CodeBlock language={match?.[1]}>{String(children).replace(/\n$/, '')}</CodeBlock>; } }}>{compareJudgeResult}</ReactMarkdown></div></div>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* --- 公测公告模态框 --- */}
-            {/* --- 公测公告模态框 (已优化) --- */}
-            {/* --- 公测公告模态框 (已优化) --- */}
-      {/* --- 公测公告模态框 (最终修正版) --- */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up flex flex-col max-h-[90vh]">
-            
-            {/* 头部 */}
-            <div className="p-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 relative shrink-0">
-              <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
-              <div className="p-5 relative z-10 flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <Rocket className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-white">🎉 系统公测中</h3>
-                    <p className="text-indigo-100 text-xs mt-0.5">Public Beta Program</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
-                  className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors shrink-0"
-                  title="关闭公告"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-              </div>
-            </div>
-            
-            {/* 内容区 */}
-            <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-4 text-center">
-                <Gift className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-2" />
-                <h4 className="font-bold text-indigo-900 dark:text-indigo-200 text-base">所有高级功能免费开放</h4>
-                <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1.5 leading-relaxed">
-                  感谢参与内测！<strong>AI 评委</strong>、<strong>方案融合</strong>、<strong>无限次对比</strong>等功能无需积分，尽情体验。
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h5 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">公测权益</h5>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    '✅ 无限次 AI 评委',
-                    '✅ 无限次 方案融合',
-                    '✅ 自定义评分维度',
-                    '✅ 优先技术支持'
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                      <span className="text-green-500 text-sm">✓</span>
-                      <span className="text-xs text-gray-700 dark:text-gray-300 font-medium truncate">{item.replace('✅ ', '')}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
-                <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2 text-center">拥有内测兑换码？</label>
-                <div className="flex gap-2">
-                  <input type="text" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value)} placeholder="CODE-XXXXXX" className="flex-grow bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white" />
-                  <button onClick={handleRedeem} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity whitespace-nowrap">兑换</button>
-                </div>
-                {redeemMsg && (<div className={`mt-1.5 text-[10px] font-medium text-center ${redeemMsg.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{redeemMsg.text}</div>)}
-                
-                <div className="mt-3 text-[10px] text-gray-400 text-center bg-gray-50 dark:bg-gray-800/30 p-2 rounded">
-                  <p className="font-bold text-gray-500 dark:text-gray-400">📅 正式商业化即将上线</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* 底部 */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 text-center border-t border-gray-200 dark:border-gray-700 shrink-0">
-              <button 
-                onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
-              >
-                开始体验 →
-              </button>
-              <p className="text-[10px] text-gray-400 mt-2">关闭后仍可点击侧边栏查看</p>
+      {/* 公告模态框 */}
+      {showBetaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={()=>{setShowBetaModal(false);if(typeof window!=='undefined')localStorage.setItem('beta_modal_seen_v2','true');}}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-800 relative overflow-hidden" onClick={e=>e.stopPropagation()}>
+            <button onClick={()=>{setShowBetaModal(false);if(typeof window!=='undefined')localStorage.setItem('beta_modal_seen_v2','true');}} className="absolute top-4 right-4 p-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors z-10"><X size={18} className="text-gray-500 dark:text-gray-400"/></button>
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3"><Gift size={32} className="text-white"/></div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">🎉 系统公测开启</h2>
+              <p className="text-gray-600 dark:text-gray-300 mb-6 text-sm leading-relaxed">感谢参与内测！即日起，<strong className="text-indigo-600 dark:text-indigo-400">AI 评委</strong>、<strong className="text-indigo-600 dark:text-indigo-400">方案融合</strong>及<strong className="text-indigo-600 dark:text-indigo-400">无限次对比</strong>功能全部免费开放。</p>
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6 text-left"><div className="flex items-start gap-3"><CheckCircle size={20} className="text-green-600 dark:text-green-400 shrink-0 mt-0.5"/><div className="text-sm text-green-800 dark:text-green-200"><p className="font-bold mb-1">当前权益：</p><ul className="list-disc list-inside space-y-1 opacity-90"><li>无限次 AI 深度评委</li><li>无限次 终极方案融合</li><li>无需积分，直接可用</li></ul></div></div></div>
+              <button onClick={()=>{setShowBetaModal(false);if(typeof window!=='undefined')localStorage.setItem('beta_modal_seen_v2','true');}} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">开始体验 →</button>
+              <p className="text-xs text-gray-400 mt-4">正式商业化即将上线，敬请期待</p>
             </div>
           </div>
         </div>
