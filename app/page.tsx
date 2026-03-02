@@ -828,6 +828,7 @@ export default function Home() {
       {/* --- 公测公告模态框 --- */}
             {/* --- 公测公告模态框 (已优化) --- */}
             {/* --- 公测公告模态框 (已优化) --- */}
+            {/* --- 公测公告模态框 (最终修正版) --- */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up flex flex-col max-h-[90vh]">
@@ -905,33 +906,6 @@ export default function Home() {
                 开始体验 →
               </button>
               <p className="text-[10px] text-gray-400 mt-2">关闭后仍可点击侧边栏查看</p>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2 text-center">拥有内测兑换码？</label>
-                <div className="flex gap-2">
-                  <input type="text" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value)} placeholder="输入 CODE-XXXXXX" className="flex-grow bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white" />
-                  <button onClick={handleRedeem} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-opacity whitespace-nowrap">兑换</button>
-                </div>
-                {redeemMsg && (<div className={`mt-2 text-xs font-medium text-center ${redeemMsg.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{redeemMsg.text}</div>)}
-                
-                <div className="mt-6 text-[10px] text-gray-400 text-center bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
-                  <p className="font-bold text-gray-500 dark:text-gray-400 mb-1">📅 正式商业化即将上线</p>
-                  <p>我们将很快推出 Pro 会员计划。届时您将可以保留数据并享受更多专属服务。敬请期待！</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 text-center border-t border-gray-200 dark:border-gray-700">
-              <button onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-bold transition-colors">开始体验 →</button>
             </div>
           </div>
         </div>
