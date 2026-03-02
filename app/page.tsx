@@ -319,7 +319,7 @@ export default function Home() {
           stream: true
         };
 
-        // 3. 发起请求 -> 指向本地 API /api/chat
+        // 3. 发起请求 -> 指向本地 API /api/judge
         const response = await fetch('/api/judge', {
           method: 'POST',
           headers: {
