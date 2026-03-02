@@ -86,3 +86,17 @@ body {
 .prose table { border-collapse: separate; border-spacing: 0; width: 100%; border-radius: 8px; overflow: hidden; }
 .prose th { background: var(--ai-msg-bg); color: var(--foreground-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
 .prose td, .prose th { border: 1px solid var(--border-color); padding: 0.75em; }
+/* 自定义滚动条样式，用于模态框内部 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #475569;
+}

@@ -307,7 +307,7 @@ export default function Home() {
         let apiModelName = '';
         if (modelName === 'DeepSeek') apiModelName = 'deepseek-chat';
         else if (modelName === '通义千问') apiModelName = 'qwen-plus';
-        else if (modelName === '豆包') apiModelName = 'doubao-pro-32k';
+        else if (modelName === '豆包') apiModelName = 'doubao-seed-2-0-pro-260215';
 
         // 2. 构建请求体
         const currentMessages = models[modelName].messages.filter(m => m.role !== 'system');
@@ -565,9 +565,9 @@ export default function Home() {
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
             <div className="hidden md:block">
               <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-                AI 对比助手 <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-0.5 rounded-full uppercase">Public Beta</span>
+                元合AI 对比助手 <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-0.5 rounded-full uppercase">公开测试版 版本号【0.9】</span>
               </h1>
-              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase">Real-time Evaluation • Smart Fusion</p>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium uppercase">全场景内容AI实时评估 • 方案智能融合</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -826,50 +826,92 @@ export default function Home() {
       </div>
 
       {/* --- 公测公告模态框 --- */}
+            {/* --- 公测公告模态框 (已优化) --- */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up">
-            <div className="p-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 relative overflow-hidden">
+          <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up flex flex-col max-h-[90vh]">
+            
+            {/* 头部：固定不变 */}
+            <div className="p-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-600 to-purple-600 relative shrink-0">
               <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
-              <div className="p-6 relative z-10">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <Rocket className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">🎉 系统公测中</h3>
-                      <p className="text-indigo-100 text-sm mt-1">Public Beta Program</p>
-                    </div>
+              <div className="p-5 relative z-10 flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <Rocket className="w-6 h-6 text-white" />
                   </div>
-                  <button onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">🎉 系统公测中</h3>
+                    <p className="text-indigo-100 text-xs mt-0.5">Public Beta Program</p>
+                  </div>
+                </div>
+                {/* 右上角关闭叉号 - 始终可见 */}
+                <button 
+                  onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
+                  className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors shrink-0"
+                  title="关闭公告"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* 内容区：可滚动，防止遮挡底部按钮 */}
+            <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
+              {/* 核心提示卡片 */}
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-4 text-center">
+                <Gift className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mx-auto mb-2" />
+                <h4 className="font-bold text-indigo-900 dark:text-indigo-200 text-base">所有高级功能免费开放</h4>
+                <p className="text-xs text-indigo-700 dark:text-indigo-300 mt-1.5 leading-relaxed">
+                  感谢参与内测！<strong>AI 评委</strong>、<strong>方案融合</strong>、<strong>无限次对比</strong>等功能无需积分，尽情体验。
+                </p>
+              </div>
+
+              {/* 精简权益列表 */}
+              <div className="space-y-2">
+                <h5 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider text-center">公测权益</h5>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    '✅ 无限次 AI 评委',
+                    '✅ 无限次 方案融合',
+                    '✅ 自定义评分维度',
+                    '✅ 优先技术支持'
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                      <span className="text-green-500 text-sm">✓</span>
+                      <span className="text-xs text-gray-700 dark:text-gray-300 font-medium truncate">{item.replace('✅ ', '')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 兑换码区域 (折叠感) */}
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                <label className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-2 text-center">拥有内测兑换码？</label>
+                <div className="flex gap-2">
+                  <input type="text" value={redeemCode} onChange={(e) => setRedeemCode(e.target.value)} placeholder="CODE-XXXXXX" className="flex-grow bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none text-gray-900 dark:text-white" />
+                  <button onClick={handleRedeem} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-opacity whitespace-nowrap">兑换</button>
+                </div>
+                {redeemMsg && (<div className={`mt-1.5 text-[10px] font-medium text-center ${redeemMsg.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{redeemMsg.text}</div>)}
+                
+                <div className="mt-3 text-[10px] text-gray-400 text-center bg-gray-50 dark:bg-gray-800/30 p-2 rounded">
+                  <p className="font-bold text-gray-500 dark:text-gray-400">📅 正式商业化即将上线</p>
                 </div>
               </div>
             </div>
             
-            <div className="p-6 space-y-6">
-              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl p-5 text-center">
-                <Gift className="w-10 h-10 text-indigo-600 dark:text-indigo-400 mx-auto mb-3" />
-                <h4 className="font-bold text-indigo-900 dark:text-indigo-200 text-lg">所有高级功能免费开放</h4>
-                <p className="text-sm text-indigo-700 dark:text-indigo-300 mt-2 leading-relaxed">
-                  感谢参与内测！在此期间，<strong>AI 评委</strong>、<strong>方案融合</strong>、<strong>无限次对比</strong>等功能均无需积分，尽情体验。
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <h5 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">公测权益</h5>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    '✅ 无限次 AI 深度评委',
-                    '✅ 无限次 终极方案融合',
-                    '✅ 自定义评分维度',
-                    '✅ 优先技术支持'
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                      <span className="text-green-500 text-lg">✓</span>
-                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{item}</span>
-                    </div>
-                  ))}
+            {/* 底部操作区：固定不变，始终可见 */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-800/50 text-center border-t border-gray-200 dark:border-gray-700 shrink-0">
+              <button 
+                onClick={() => { setShowUpgradeModal(false); setHasSeenBetaModal(true); localStorage.setItem('beta_modal_seen', 'true'); }} 
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
+              >
+                开始体验 →
+              </button>
+              <p className="text-[10px] text-gray-400 mt-2">关闭后仍可点击侧边栏查看</p>
+            </div>
+          </div>
+        </div>
+      )}
                 </div>
               </div>
 
