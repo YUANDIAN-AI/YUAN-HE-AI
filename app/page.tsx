@@ -374,29 +374,93 @@ export default function Home() {
   };
 
   const handleCompareJudge = async () => {
-    if (selectedItems.length === 0) return;
+    // 1. 基础校验：确保至少有两个模型被选中/激活
+    // 兼容你的旧逻辑：如果 selectedItems 为空，尝试从 models 中获取激活的模型
+    const activeModels = Object.keys(models).filter(k => models[k].isActive);
+    
+    if (activeModels.length < 2) {
+      alert('❌ 请至少激活或选择两个模型进行对比');
+      return;
+    }
+
+    // 2. 初始化状态
     setIsComparingJudging(true);
-    setCompareJudgeResult(null);
-    setCompareScoreData([]);
+    setCompareJudgeResult(''); // 改为空字符串，用于累积文本流
+    setCompareScoreData([]);   // 清空旧的评分数据
     setCompareFusionResult(null);
-    setJudgeTimer(5);
+    setJudgeTimer(5);          // 保留你的定时器逻辑
 
-    const timerInterval = setInterval(() => { setJudgeTimer(prev => (prev <= 1 ? 0 : prev - 1)); }, 1000);
-    const currentQuestion = lastQuestionRef.current || "未知问题";
+    // 启动定时器 (保留原有逻辑)
+    const timerInterval = setInterval(() => { 
+      setJudgeTimer(prev => (prev <= 1 ? 0 : prev - 1)); 
+    }, 1000);
 
-    const judgePrompt = `
-      你是一位资深的 AI 模型评估专家。请对比以下 ${selectedItems.length} 个模型对同一问题的回答。
-      用户问题：${currentQuestion}
-      待评估的回答：
-      ${selectedItems.map((item, i) => `--- 模型 ${i+1}: ${item.modelName} ---\n${item.content}`).join('\n')}
-      请严格按照以下 JSON 格式返回评估结果（不要包含 markdown 代码块标记，直接返回 JSON）：
-      {
-        "scores": [
-          { "name": "模型名称", "${settings.dimensions[0].key}": 1-5, "${settings.dimensions[1].key}": 1-5, "${settings.dimensions[2].key}": 1-5, "${settings.dimensions[3].key}": 1-5, "shortComment": "简短评语，限 8 个字" }
-        ],
-        "summary": "详细的点评内容，支持 Markdown。"
+    try {
+      // 3. 构建提示词 (兼容你的 selectedItems 或 models 逻辑)
+      const currentQuestion = lastQuestionRef.current || userInput || "未知问题";
+      let promptText = `你是一位资深的 AI 模型评估专家。请对比以下模型对同一问题的回答。\n\n`;
+      promptText += `用户问题：${currentQuestion}\n\n`;
+
+      // 优先使用 selectedItems (如果你的 UI 逻辑是选中项)，否则使用 activeModels
+      const itemsToCompare = selectedItems.length > 0 
+        ? selectedItems 
+        : activeModels.map(key => ({ 
+            modelName: key, 
+            content: models[key].messages.find(m => m.role === 'assistant')?.content || '(无回答)' 
+          }));
+
+      itemsToCompare.forEach((item, i) => {
+        promptText += `【${item.modelName}】的回答:\n${item.content}\n\n`;
+      });
+
+      promptText += `请从准确性、逻辑性、完整性三个维度进行详细点评，指出每个模型的优缺点，并给出最终获胜者和评分（0-100分）。请直接输出文本分析，不需要 JSON 格式。`;
+
+      // 4. 调用后端 API (关键修改：不再前端请求，改走 /api/judge)
+      const response = await fetch('/api/judge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText, modelType: 'deepseek' })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || '评委服务启动失败');
       }
-    `;
+
+      // 5. 处理流式响应 (Stream)
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      while (true) {
+        const { done, value } = await reader!.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                setCompareJudgeResult(prev => prev + content);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+    } catch (error: any) {
+      console.error('Judging failed:', error);
+      setCompareJudgeResult(`❌ 评委出错：${error.message}`);
+    } finally {
+      // 6. 清理状态
+      clearInterval(timerInterval);
+      setJudgeTimer(0);
+      setIsComparingJudging(false);
+    }
+  };
 
     // 注意：这里也需要调用后端 API 来执行评委逻辑，为了简化，暂时假设后端能处理或前端直接调用（如果后端没写评委接口）
     // 为了保持一致性，建议也改为调用 /api/chat 并传入特殊的 system prompt，或者单独写一个 /api/judge 路由
@@ -828,7 +892,7 @@ export default function Home() {
       {/* --- 公测公告模态框 --- */}
             {/* --- 公测公告模态框 (已优化) --- */}
             {/* --- 公测公告模态框 (已优化) --- */}
-            {/* --- 公测公告模态框 (最终修正版) --- */}
+      {/* --- 公测公告模态框 (最终修正版) --- */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white dark:bg-[#1E293B] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-indigo-200 dark:border-gray-700 animate-scale-up flex flex-col max-h-[90vh]">
