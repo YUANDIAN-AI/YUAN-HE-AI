@@ -484,7 +484,7 @@ export default function Home() {
 
     try {
       // 这里暂时保留直连，建议后续改为调用后端
-      const response = await fetch('https://api.deepseek.com/chat/completions', {
+      const response = await fetch('https://api.deepseek.com/judge/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: judgePrompt }], stream: false })
       });
