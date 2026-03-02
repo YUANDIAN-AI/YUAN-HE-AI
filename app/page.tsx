@@ -476,7 +476,7 @@ export default function Home() {
       要求：取长补短，格式完美。直接输出最终结果，使用 Markdown 格式。
     `;
 
-    // 同样，融合功能也建议走后端路由，这里暂时保留直连逻辑，需确保有 Key
+    // 同样，融合功能也建议走后端路由，这里暂时保留直连逻辑，需确保有 Key可以用
     // 若要彻底免 Key，请创建 /api/fuse 路由
     const apiKey = settings.apiKeys['DeepSeek'] || settings.apiKeys['通义千问'];
     if (!apiKey) { clearInterval(timerInterval); setCompareFusionResult("⚠️ 融合功能需要配置 API Key。"); setIsComparingFusing(false); return; }
